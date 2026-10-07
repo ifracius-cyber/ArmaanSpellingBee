@@ -30,6 +30,7 @@ A word counts as *mastered* after it has been spelled correctly several times. P
 ```bash
 npm install
 npm run dev        # http://localhost:5173
+npm run dev:host   # also reachable from other devices on your Wi-Fi (use the "Network:" URL it prints)
 npm run build      # static site in dist/
 ```
 
