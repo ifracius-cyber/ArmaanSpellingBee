@@ -1,0 +1,110 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-display: 'Fredoka', 'Arial Rounded MT Bold', system-ui, sans-serif;
+  --font-sans: 'Nunito', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --color-honey-50: #fffbeb;
+  --color-honey-100: #fef3c7;
+  --color-honey-200: #fde68a;
+  --color-honey-300: #fcd34d;
+  --color-honey-400: #fbbf24;
+  --color-honey-500: #f59e0b;
+  --color-honey-600: #d97706;
+  --color-honey-700: #b45309;
+  --color-night-950: #0d0a22;
+  --color-night-900: #14102e;
+  --color-night-800: #1e1846;
+  --color-night-700: #2a2260;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: #14102e;
+  color: #fef3c7;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+.glass {
+  background: rgba(20, 16, 46, 0.72);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(251, 191, 36, 0.22);
+  box-shadow: 0 20px 50px -20px rgba(0, 0, 0, 0.6);
+}
+
+.btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 font-display text-lg font-semibold transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-40;
+}
+.btn-honey {
+  @apply bg-honey-400 text-night-900 shadow-[0_6px_0_#b45309] hover:bg-honey-300 active:shadow-[0_2px_0_#b45309];
+}
+.btn-ghost {
+  @apply border border-honey-400/40 bg-white/5 text-honey-100 hover:bg-white/10;
+}
+.btn-green {
+  @apply bg-green-400 text-night-900 shadow-[0_6px_0_#15803d] hover:bg-green-300;
+}
+.btn-red {
+  @apply bg-rose-400 text-night-900 shadow-[0_6px_0_#be123c] hover:bg-rose-300;
+}
+.chip {
+  @apply inline-flex items-center rounded-full border border-honey-400/30 bg-honey-400/10 px-3 py-1 text-sm font-semibold text-honey-200;
+}
+.label {
+  @apply font-display text-xs font-semibold tracking-widest text-honey-400/80 uppercase;
+}
+
+@keyframes pop-in {
+  from {
+    transform: scale(0.9) translateY(8px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+.pop-in {
+  animation: pop-in 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.3);
+}
+
+@keyframes shake {
+  10%,
+  90% {
+    transform: translateX(-2px);
+  }
+  20%,
+  80% {
+    transform: translateX(4px);
+  }
+  30%,
+  50%,
+  70% {
+    transform: translateX(-8px);
+  }
+  40%,
+  60% {
+    transform: translateX(8px);
+  }
+}
+.shake {
+  animation: shake 0.5s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pop-in,
+  .shake {
+    animation: none;
+  }
+}
+
+.input {
+  @apply w-full rounded-xl border border-honey-400/40 bg-night-950/60 px-3 py-2 text-honey-100 outline-none focus:border-honey-400;
+}
