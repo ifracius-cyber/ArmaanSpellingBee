@@ -62,6 +62,60 @@ export function activeApiKey(): string {
   return useSettings.getState().apiKey || getEnvKey()
 }
 
+/** Turns an ElevenLabs error response into a message a parent can act on. */
+async function friendlyError(res: Response): Promise<Error> {
+  let status = ''
+  let message = ''
+  try {
+    const body = (await res.json()) as { detail?: { status?: string; message?: string } | string }
+    if (typeof body.detail === 'string') message = body.detail
+    else {
+      status = body.detail?.status ?? ''
+      message = body.detail?.message ?? ''
+    }
+  } catch {
+    /* body wasn't JSON */
+  }
+  let hint: string
+  if (status === 'invalid_api_key' || (res.status === 401 && !status))
+    hint = 'The key was not recognised. Copy it again from ElevenLabs → Developers → API Keys (it starts with "sk_").'
+  else if (status === 'missing_permissions')
+    hint = 'This key is missing a permission. Edit the key on ElevenLabs and turn on "Text to Speech" (Access).'
+  else if (status === 'quota_exceeded' || res.status === 402)
+    hint = 'The ElevenLabs account is out of credits for this month, or this voice needs a paid plan.'
+  else if (status === 'detected_unusual_activity')
+    hint = 'ElevenLabs paused free-tier use for this account. Signing in on elevenlabs.io or upgrading usually fixes it.'
+  else if (status === 'voice_not_found' || res.status === 404)
+    hint = 'That voice is not available on this account. Pick another voice in Settings.'
+  else if (res.status === 429) hint = 'Too many requests at once. Wait a few seconds and try again.'
+  else hint = `ElevenLabs returned error ${res.status}.`
+  return new Error(message ? `${hint} (${message})` : hint)
+}
+
+function ttsRequest(key: string, text: string, voiceId: string, modelId: string, speed: number) {
+  return fetch(`${ELEVEN_BASE}/text-to-speech/${voiceId}?output_format=mp3_44100_128`, {
+    method: 'POST',
+    headers: { 'xi-api-key': key, 'Content-Type': 'application/json', Accept: 'audio/mpeg' },
+    body: JSON.stringify({
+      text,
+      model_id: modelId,
+      voice_settings: { stability: 0.6, similarity_boost: 0.8, style: 0.15, speed },
+    }),
+  })
+}
+
+/** Checks a key by making one tiny speech request — the only permission the app really needs. */
+export async function testApiKey(key: string): Promise<void> {
+  const { voiceId, modelId, speed } = useSettings.getState()
+  let res: Response
+  try {
+    res = await ttsRequest(key, 'Hi!', voiceId, modelId, speed)
+  } catch {
+    throw new Error('Could not reach ElevenLabs. Check the internet connection, or turn off an ad/tracker blocker for this page.')
+  }
+  if (!res.ok) throw await friendlyError(res)
+}
+
 async function elevenLabsAudio(text: string): Promise<Blob> {
   const { voiceId, modelId, speed } = useSettings.getState()
   const key = activeApiKey()
@@ -76,19 +130,8 @@ async function elevenLabsAudio(text: string): Promise<Blob> {
     // Cache API unavailable (e.g. insecure context) — just fetch every time.
   }
 
-  const res = await fetch(`${ELEVEN_BASE}/text-to-speech/${voiceId}?output_format=mp3_44100_128`, {
-    method: 'POST',
-    headers: { 'xi-api-key': key, 'Content-Type': 'application/json', Accept: 'audio/mpeg' },
-    body: JSON.stringify({
-      text,
-      model_id: modelId,
-      voice_settings: { stability: 0.6, similarity_boost: 0.8, style: 0.15, speed },
-    }),
-  })
-  if (!res.ok) {
-    const detail = await res.text().catch(() => '')
-    throw new Error(`ElevenLabs ${res.status}: ${detail.slice(0, 200)}`)
-  }
+  const res = await ttsRequest(key, text, voiceId, modelId, speed)
+  if (!res.ok) throw await friendlyError(res)
   const blob = await res.blob()
   if (cache) await cache.put(cacheKey, new Response(blob, { headers: { 'Content-Type': 'audio/mpeg' } })).catch(() => {})
   return blob
@@ -167,7 +210,7 @@ export interface ElevenVoice {
 /** Lists voices on the user's ElevenLabs account (used by Settings). */
 export async function fetchAccountVoices(key: string): Promise<ElevenVoice[]> {
   const res = await fetch(`${ELEVEN_BASE}/voices`, { headers: { 'xi-api-key': key } })
-  if (!res.ok) throw new Error(`ElevenLabs ${res.status}`)
+  if (!res.ok) throw await friendlyError(res)
   const json = (await res.json()) as { voices: ElevenVoice[] }
   return json.voices
 }

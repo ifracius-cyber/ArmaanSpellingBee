@@ -3,6 +3,7 @@ import { useProgress, useSettings } from '../lib/store'
 import {
   clearAudioCache,
   fetchAccountVoices,
+  testApiKey,
   lastVoiceError,
   MODELS,
   speak,
@@ -18,15 +19,26 @@ export default function SettingsPage() {
   const [status, setStatus] = useState('')
 
   const saveKey = async () => {
-    s.set({ apiKey: keyDraft.trim() })
-    if (!keyDraft.trim()) return setStatus('Key removed — using the built-in browser voice.')
+    // People often paste with quotes, spaces or a "xi-api-key:" label — strip all of that.
+    const key = keyDraft.trim().replace(/^["']|["']$/g, '').replace(/^xi-api-key:\s*/i, '').trim()
+    setKeyDraft(key)
+    s.set({ apiKey: key, useElevenLabs: true })
+    if (!key) return setStatus('Key removed — using the built-in browser voice.')
+    if (!key.startsWith('sk_'))
+      return setStatus('⚠️ That doesn\'t look like an ElevenLabs API key. API keys start with "sk_" — an Agent ID or voice ID won\'t work here.')
     setStatus('Checking key…')
     try {
-      const v = await fetchAccountVoices(keyDraft.trim())
-      setVoices(v)
-      setStatus(`✅ Connected! ${v.length} voices available on your account.`)
+      await testApiKey(key)
     } catch (e) {
-      setStatus(`⚠️ Could not reach ElevenLabs with that key (${e instanceof Error ? e.message : e}). Check it and try again.`)
+      return setStatus(`⚠️ ${e instanceof Error ? e.message : e}`)
+    }
+    try {
+      const v = await fetchAccountVoices(key)
+      setVoices(v)
+      setStatus(`✅ Connected! The teacher voice is ready, and ${v.length} voices from your account are in the Voice list.`)
+    } catch {
+      // Listing voices needs the optional "Voices: Read" permission; speech works without it.
+      setStatus('✅ Connected! The teacher voice is ready. (To pick from all your account voices, also give the key the "Voices → Read" permission.)')
     }
   }
 
