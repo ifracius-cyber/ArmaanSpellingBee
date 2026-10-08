@@ -54,8 +54,23 @@ key in Settings on each device is the simplest safe setup.
 - These are study aids, not the official Scripps pronouncer guide. Check very rare words against Merriam-Webster
   Unabridged, which is the bee's official dictionary. For example, *nodiak* only has a placeholder definition.
 
+## Cloud save (Supabase)
+
+Progress is always kept in the browser. Turning on cloud save also backs it up to Supabase and lets the same
+progress follow the learner to other devices.
+
+1. Create a Supabase project. Open **SQL Editor**, paste `supabase/setup.sql`, and run it.
+2. Copy the project URL and the publishable key (Project Settings → API) into `.env.local`:
+   `VITE_SUPABASE_URL=…` and `VITE_SUPABASE_PUBLISHABLE_KEY=…`. Both values are public and safe to ship.
+3. Rebuild with `npm run build:single`.
+4. In the app, open **Settings → Cloud save → Turn on cloud save**. To use another device, enter the save code
+   shown there under **Already have a save code?**.
+
+The table can't be read with the public key. The app can only reach it through two database functions, and both
+need the exact save code. Treat the code like a password.
+
 ## Sharing without running a server
 
-`npm run build:single` builds the whole app into one file, `dist-single/index.html`. You can host that file anywhere,
+`npm run build:single` builds the whole app into one file, `netlify-upload/index.html`, ready for Netlify Drop. You can host that file anywhere,
 or publish it as a page. When the app runs inside a locked-down page, browser rules block calls to ElevenLabs, so it
 uses the device's built-in voice instead.

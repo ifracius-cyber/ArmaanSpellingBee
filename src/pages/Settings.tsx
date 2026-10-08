@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import CloudSettings from '../components/CloudSettings'
 import { useProgress, useSettings } from '../lib/store'
 import {
   clearAudioCache,
@@ -154,9 +155,13 @@ export default function SettingsPage() {
         {status && <p className="rounded-xl bg-white/5 p-3">{status}</p>}
       </section>
 
+      <CloudSettings />
+
       <section className="glass space-y-3 rounded-3xl p-6">
         <h2 className="font-display text-2xl font-bold text-honey-300">Progress</h2>
-        <p className="text-honey-100/80">Progress is saved in this browser on this device.</p>
+        <p className="text-honey-100/80">
+          Progress is always saved in this browser. With cloud save on, it's also backed up online.
+        </p>
         {/* An in-page confirmation, because browser confirm() dialogs are blocked in some embedded viewers. */}
         {confirmReset ? (
           <div className="flex flex-wrap items-center gap-3 rounded-xl bg-rose-400/10 p-3">

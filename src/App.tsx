@@ -1,6 +1,8 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { CelebrateContext, go, useRoute, WordsContext, type Route } from './components/hooks'
 import { loadWords } from './lib/words'
+import { startCloudSync } from './lib/cloud'
+import CloudBadge from './components/CloudBadge'
 import type { Word } from './types'
 import HomePage from './pages/Home'
 import LearnPage from './pages/Learn'
@@ -27,6 +29,7 @@ export default function App() {
 
   useEffect(() => {
     loadWords().then(setWords)
+    startCloudSync()
   }, [])
 
   const celebrate = useCallback(() => {
@@ -56,11 +59,14 @@ export default function App() {
                 </span>
               </span>
             </button>
-            <nav className="hidden gap-1 sm:flex" aria-label="Main">
-              {NAV.map((n) => (
-                <NavButton key={n.route} {...n} active={route === n.route} />
-              ))}
-            </nav>
+            <div className="flex items-center gap-2">
+              <CloudBadge />
+              <nav className="hidden gap-1 sm:flex" aria-label="Main">
+                {NAV.map((n) => (
+                  <NavButton key={n.route} {...n} active={route === n.route} />
+                ))}
+              </nav>
+            </div>
           </header>
 
           <main className="flex-1">
