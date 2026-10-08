@@ -54,20 +54,27 @@ key in Settings on each device is the simplest safe setup.
 - These are study aids, not the official Scripps pronouncer guide. Check very rare words against Merriam-Webster
   Unabridged, which is the bee's official dictionary. For example, *nodiak* only has a placeholder definition.
 
-## Cloud save (Supabase)
+## Accounts, cloud save and the family voice (Supabase)
 
-Progress is always kept in the browser. Turning on cloud save also backs it up to Supabase and lets the same
-progress follow the learner to other devices.
+Learners sign in with an email and password. Their progress is saved to their account, so it follows them to
+any device. When someone signs in, a 3D welcome animation plays for under 5 seconds and can be skipped. People
+can also choose "practice without an account", which saves progress on that device only.
 
-1. Create a Supabase project. Open **SQL Editor**, paste `supabase/setup.sql`, and run it.
-2. Copy the project URL and the publishable key (Project Settings → API) into `.env.local`:
-   `VITE_SUPABASE_URL=…` and `VITE_SUPABASE_PUBLISHABLE_KEY=…`. Both values are public and safe to ship.
-3. Rebuild with `npm run build:single`.
-4. In the app, open **Settings → Cloud save → Turn on cloud save**. To use another device, enter the save code
-   shown there under **Already have a save code?**.
+One-time setup in the Supabase project:
 
-The table can't be read with the public key. The app can only reach it through two database functions, and both
-need the exact save code. Treat the code like a password.
+1. **SQL Editor:** run `supabase/setup.sql`, then `supabase/accounts.sql`.
+2. **Edge Functions → Deploy a new function → Via Editor:** name it `tts` and paste
+   `supabase/functions/tts/index.ts`.
+3. **Edge Functions → Secrets:** add `ELEVENLABS_API_KEY` (the family ElevenLabs key) and `ALLOWED_EMAILS` (a
+   comma-separated list of the emails allowed to use the voice). The key stays on the server and never reaches a
+   browser.
+4. **Authentication → URL Configuration:** set Site URL to the Netlify address, so confirmation and
+   password-reset emails link back to the app.
+5. **Authentication → Users → Add user:** create each family account with **Auto Confirm User** ticked. People can
+   also use the app's Create account page.
+
+The URL and publishable key in `.env` are public values. Row Level Security lets each account read and write only
+its own progress row.
 
 ## Sharing without running a server
 

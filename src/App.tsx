@@ -2,6 +2,11 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { CelebrateContext, go, useRoute, WordsContext, type Route } from './components/hooks'
 import { loadWords } from './lib/words'
 import { startCloudSync } from './lib/cloud'
+import { startAuth, useAuth } from './lib/auth'
+import { useSettings } from './lib/store'
+import { CLOUD_ENABLED } from './config'
+import AuthPage from './pages/Auth'
+import Welcome from './components/Welcome'
 import CloudBadge from './components/CloudBadge'
 import type { Word } from './types'
 import HomePage from './pages/Home'
@@ -29,8 +34,13 @@ export default function App() {
 
   useEffect(() => {
     loadWords().then(setWords)
+    startAuth()
     startCloudSync()
   }, [])
+
+  const { session, ready: authReady, welcome } = useAuth()
+  const guest = useSettings((s) => s.guest)
+  const needsSignIn = CLOUD_ENABLED && authReady && !session && !guest
 
   const celebrate = useCallback(() => {
     setBurst((b) => b + 1)
@@ -46,55 +56,65 @@ export default function App() {
           <Confetti burstKey={burst} />
         </Suspense>
 
-        <div className="mx-auto flex min-h-screen max-w-5xl flex-col px-4 pb-28 sm:pb-10">
-          <header className="flex items-center justify-between gap-3 py-4">
-            <button type="button" onClick={() => go('home')} className="flex items-center gap-2 text-left">
-              <span className="text-3xl" aria-hidden>
-                🐝
-              </span>
-              <span className="font-display text-xl leading-tight font-bold text-honey-300 sm:text-2xl">
-                Spelling Hive
-                <span className="block text-xs font-medium tracking-wide text-honey-100/70">
-                  Dallas Regional Spelling Bee · 2027 Words of the Champions
-                </span>
-              </span>
-            </button>
-            <div className="flex items-center gap-2">
-              <CloudBadge />
-              <nav className="hidden gap-1 sm:flex" aria-label="Main">
-                {NAV.map((n) => (
-                  <NavButton key={n.route} {...n} active={route === n.route} />
-                ))}
-              </nav>
+        {welcome && session && <Welcome />}
+
+        {!authReady ? null : needsSignIn ? (
+          <AuthPage />
+        ) : (
+          <>
+            <div className="mx-auto flex min-h-screen max-w-5xl flex-col px-4 pb-28 sm:pb-10">
+              <header className="flex items-center justify-between gap-3 py-4">
+                <button type="button" onClick={() => go('home')} className="flex items-center gap-2 text-left">
+                  <span className="text-3xl" aria-hidden>
+                    🐝
+                  </span>
+                  <span className="font-display text-xl leading-tight font-bold text-honey-300 sm:text-2xl">
+                    Spelling Hive
+                    <span className="block text-xs font-medium tracking-wide text-honey-100/70">
+                      Dallas Regional Spelling Bee · 2027 Words of the Champions
+                    </span>
+                  </span>
+                </button>
+                <div className="flex items-center gap-2">
+                  <CloudBadge />
+                  <nav className="hidden gap-1 sm:flex" aria-label="Main">
+                    {NAV.map((n) => (
+                      <NavButton key={n.route} {...n} active={route === n.route} />
+                    ))}
+                  </nav>
+                </div>
+              </header>
+
+              <main className="flex-1">
+                {!words ? (
+                  <div className="glass mt-20 rounded-3xl p-10 text-center font-display text-2xl">
+                    Buzzing up the word list…
+                  </div>
+                ) : route === 'learn' ? (
+                  <LearnPage initialId={param} />
+                ) : route === 'practice' ? (
+                  <PracticePage />
+                ) : route === 'words' ? (
+                  <WordsPage />
+                ) : route === 'settings' ? (
+                  <SettingsPage param={param} />
+                ) : (
+                  <HomePage />
+                )}
+              </main>
             </div>
-          </header>
 
-          <main className="flex-1">
-            {!words ? (
-              <div className="glass mt-20 rounded-3xl p-10 text-center font-display text-2xl">Buzzing up the word list…</div>
-            ) : route === 'learn' ? (
-              <LearnPage initialId={param} />
-            ) : route === 'practice' ? (
-              <PracticePage />
-            ) : route === 'words' ? (
-              <WordsPage />
-            ) : route === 'settings' ? (
-              <SettingsPage />
-            ) : (
-              <HomePage />
-            )}
-          </main>
-        </div>
-
-        {/* bottom tab bar on phones/tablets */}
-        <nav
-          className="glass fixed inset-x-0 bottom-0 z-40 flex justify-around rounded-t-3xl px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:hidden"
-          aria-label="Main"
-        >
-          {NAV.map((n) => (
-            <NavButton key={n.route} {...n} active={route === n.route} compact />
-          ))}
-        </nav>
+            {/* bottom tab bar on phones/tablets */}
+            <nav
+              className="glass fixed inset-x-0 bottom-0 z-40 flex justify-around rounded-t-3xl px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:hidden"
+              aria-label="Main"
+            >
+              {NAV.map((n) => (
+                <NavButton key={n.route} {...n} active={route === n.route} compact />
+              ))}
+            </nav>
+          </>
+        )}
       </WordsContext.Provider>
     </CelebrateContext.Provider>
   )

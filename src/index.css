@@ -108,3 +108,24 @@ body {
 .input {
   @apply w-full rounded-xl border border-honey-400/40 bg-night-950/60 px-3 py-2 text-honey-100 outline-none focus:border-honey-400;
 }
+
+@keyframes welcome-text {
+  0%,
+  25% {
+    transform: translateY(16px) scale(0.92);
+    opacity: 0;
+  }
+  45%,
+  100% {
+    transform: none;
+    opacity: 1;
+  }
+}
+.welcome-text {
+  animation: welcome-text 2.6s ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .welcome-text {
+    animation: none;
+  }
+}

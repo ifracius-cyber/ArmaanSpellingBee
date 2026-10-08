@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { go, useWords } from '../components/hooks'
 import { ProgressBar, SpeakButton } from '../components/ui'
 import { isDue, liveStreak, MASTERED_BOX, todayCountOf, useProgress, useSettings } from '../lib/store'
-import { activeApiKey } from '../lib/voice'
+import { hasElevenLabs } from '../lib/voice'
 import { LEVEL_BLURBS, LEVEL_NAMES, type Level } from '../types'
 
 export default function HomePage() {
@@ -47,7 +47,7 @@ export default function HomePage() {
               >
                 🔊 Say hello
               </SpeakButton>
-              {!activeApiKey() && (
+              {!hasElevenLabs() && (
                 <button type="button" className="btn btn-ghost text-sm" onClick={() => go('settings')}>
                   🎙️ Set up ElevenLabs voice
                 </button>

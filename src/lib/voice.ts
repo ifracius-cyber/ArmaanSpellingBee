@@ -1,3 +1,5 @@
+import { SUPABASE_KEY, SUPABASE_URL } from '../config'
+import { useAuth } from './auth'
 import { useSettings } from './store'
 
 /**
@@ -60,6 +62,32 @@ function getEnvKey(): string {
 
 export function activeApiKey(): string {
   return useSettings.getState().apiKey || getEnvKey()
+}
+
+/** Signed-in family accounts get the ElevenLabs voice through the server, with no key in the browser. */
+function accountVoiceToken(): string {
+  return useAuth.getState().session?.access_token ?? ''
+}
+
+export function hasElevenLabs(): boolean {
+  return Boolean(activeApiKey() || accountVoiceToken())
+}
+
+/** Asks the `tts` Edge Function to speak; it holds the ElevenLabs key as a server secret. */
+async function accountTtsRequest(text: string, voiceId: string, modelId: string, speed: number): Promise<Response> {
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/tts`, {
+    method: 'POST',
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${accountVoiceToken()}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ text, voiceId, modelId, speed }),
+  })
+  if (res.status === 403) throw new Error('This account isn’t on the family voice list yet. Ask a grown-up to add your email.')
+  if (res.status === 404) throw new Error('The voice server isn’t set up yet (the "tts" Edge Function is missing).')
+  if (res.status === 401) throw new Error('Please sign in again to use the teacher voice.')
+  return res
 }
 
 /** Turns an ElevenLabs error response into a message a parent can act on. */
@@ -130,7 +158,7 @@ async function elevenLabsAudio(text: string): Promise<Blob> {
     // Cache API unavailable (e.g. insecure context) — just fetch every time.
   }
 
-  const res = await ttsRequest(key, text, voiceId, modelId, speed)
+  const res = key ? await ttsRequest(key, text, voiceId, modelId, speed) : await accountTtsRequest(text, voiceId, modelId, speed)
   if (!res.ok) throw await friendlyError(res)
   const blob = await res.blob()
   if (cache) await cache.put(cacheKey, new Response(blob, { headers: { 'Content-Type': 'audio/mpeg' } })).catch(() => {})
@@ -167,7 +195,7 @@ async function say(text: string): Promise<void> {
   const myToken = ++token
   emit(true)
   try {
-    if (activeApiKey() && useSettings.getState().useElevenLabs) {
+    if (hasElevenLabs() && useSettings.getState().useElevenLabs) {
       try {
         const blob = await elevenLabsAudio(text)
         if (myToken !== token) return

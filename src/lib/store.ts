@@ -14,6 +14,8 @@ interface SettingsState {
   dailyGoal: number
   /** Cloud save code (BEE-XXXX-XXXX-XXXX-XXXX); empty until cloud save is turned on. */
   syncCode: string
+  /** Chose "practice without an account" on the sign-in page. */
+  guest: boolean
   set: (patch: Partial<Omit<SettingsState, 'set'>>) => void
 }
 
@@ -28,6 +30,7 @@ export const useSettings = create<SettingsState>()(
       speed: 0.9,
       dailyGoal: 20,
       syncCode: '',
+      guest: false,
       set: (patch) => set(patch),
     }),
     { name: 'spelling-hive-settings' },
@@ -83,6 +86,8 @@ interface ProgressState {
   focusLevel: Level
   /** When progress was last reset — so a reset on one device isn't undone by another device's copy. */
   resetAt: number
+  /** Account id this device's progress belongs to ('' = not linked to an account yet). */
+  owner: string
   record: (id: number, correct: boolean) => void
   markKnown: (id: number, known: boolean) => void
   toggleStar: (id: number) => void
@@ -90,6 +95,9 @@ interface ProgressState {
   reset: () => void
   setBestRun: (n: number) => void
   mergeRemote: (remote: ProgressSnapshot) => void
+  /** Empties this device's copy (e.g. on sign-out) without marking a reset that would sync to the cloud. */
+  clearLocal: () => void
+  setOwner: (owner: string) => void
 }
 
 /** The part of progress that is saved to the cloud. */
@@ -145,6 +153,7 @@ export const useProgress = create<ProgressState>()(
       bestRun: 0,
       focusLevel: 1,
       resetAt: 0,
+      owner: '',
       record: (id, correct) =>
         set((s) => {
           const prev = s.words[id] ?? { box: 0, right: 0, wrong: 0, last: 0 }
@@ -174,6 +183,9 @@ export const useProgress = create<ProgressState>()(
       reset: () =>
         set({ words: {}, xp: 0, streak: 0, lastStudyDay: '', todayCount: 0, bestRun: 0, resetAt: Date.now() }),
       mergeRemote: (remote) => set((s) => mergeSnapshots(snapshotOf(s), remote)),
+      clearLocal: () =>
+        set({ words: {}, xp: 0, streak: 0, lastStudyDay: '', todayCount: 0, bestRun: 0, resetAt: 0, owner: '' }),
+      setOwner: (owner) => set({ owner }),
     }),
     { name: 'spelling-hive-progress' },
   ),

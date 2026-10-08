@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import CloudSettings from '../components/CloudSettings'
+import AccountSettings from '../components/AccountSettings'
+import { saveLearnerName, useAuth } from '../lib/auth'
 import { useProgress, useSettings } from '../lib/store'
 import {
   clearAudioCache,
@@ -12,8 +13,9 @@ import {
   type ElevenVoice,
 } from '../lib/voice'
 
-export default function SettingsPage() {
+export default function SettingsPage({ param }: { param?: string }) {
   const s = useSettings()
+  const signedIn = useAuth((a) => Boolean(a.session))
   const reset = useProgress((p) => p.reset)
   const [keyDraft, setKeyDraft] = useState(s.apiKey)
   const [voices, setVoices] = useState<ElevenVoice[]>([])
@@ -25,7 +27,7 @@ export default function SettingsPage() {
     const key = keyDraft.trim().replace(/^["']|["']$/g, '').replace(/^xi-api-key:\s*/i, '').trim()
     setKeyDraft(key)
     s.set({ apiKey: key, useElevenLabs: true })
-    if (!key) return setStatus('Key removed — using the built-in browser voice.')
+    if (!key) return setStatus(signedIn ? 'Key removed. Using the family account voice.' : 'Key removed. Using the built-in browser voice.')
     if (!key.startsWith('sk_'))
       return setStatus('⚠️ That doesn\'t look like an ElevenLabs API key. API keys start with "sk_" — an Agent ID or voice ID won\'t work here.')
     setStatus('Checking key…')
@@ -57,10 +59,16 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-4">
+      <h1 className="font-display text-3xl font-bold text-honey-300">⚙️ Settings</h1>
+      <AccountSettings focusPassword={param === 'new-password'} />
       <section className="glass space-y-4 rounded-3xl p-6">
-        <h1 className="font-display text-3xl font-bold text-honey-300">⚙️ Settings</h1>
         <Field label="Learner's name">
-          <input className="input" value={s.learnerName} onChange={(e) => s.set({ learnerName: e.target.value })} />
+          <input
+            className="input"
+            value={s.learnerName}
+            onChange={(e) => s.set({ learnerName: e.target.value })}
+            onBlur={() => void saveLearnerName(s.learnerName)}
+          />
         </Field>
         <Field label={`Daily goal: ${s.dailyGoal} words`}>
           <input
@@ -78,11 +86,12 @@ export default function SettingsPage() {
       <section className="glass space-y-4 rounded-3xl p-6">
         <h2 className="font-display text-2xl font-bold text-honey-300">🎙️ Teacher voice (ElevenLabs)</h2>
         <p className="text-honey-100/80">
-          Paste an ElevenLabs API key to use lifelike voices. Without one, the app uses your device&apos;s built-in voice.
-          The key is saved only in this browser. Each phrase is generated once and then cached, so repeat listens are
-          free.
+          {signedIn
+            ? 'Your family account includes the ElevenLabs teacher voice, so there is no key to paste. Press "Test voice" to hear it.'
+            : "Sign in to use the family's ElevenLabs voice, or paste an ElevenLabs API key below. Without either, the app uses your device's built-in voice."}{' '}
+          Each phrase is generated once and then saved on this device, so listening again is free.
         </p>
-        <Field label="ElevenLabs API key">
+        <Field label={signedIn ? 'Personal ElevenLabs API key (optional)' : 'ElevenLabs API key'}>
           <div className="flex flex-col gap-2 sm:flex-row">
             <input
               className="input flex-1"
@@ -155,7 +164,6 @@ export default function SettingsPage() {
         {status && <p className="rounded-xl bg-white/5 p-3">{status}</p>}
       </section>
 
-      <CloudSettings />
 
       <section className="glass space-y-3 rounded-3xl p-6">
         <h2 className="font-display text-2xl font-bold text-honey-300">Progress</h2>
