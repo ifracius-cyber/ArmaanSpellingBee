@@ -17,6 +17,7 @@ export default function SettingsPage() {
   const [keyDraft, setKeyDraft] = useState(s.apiKey)
   const [voices, setVoices] = useState<ElevenVoice[]>([])
   const [status, setStatus] = useState('')
+  const [confirmReset, setConfirmReset] = useState(false)
 
   const saveKey = async () => {
     // People often paste with quotes, spaces or a "xi-api-key:" label — strip all of that.
@@ -156,15 +157,29 @@ export default function SettingsPage() {
       <section className="glass space-y-3 rounded-3xl p-6">
         <h2 className="font-display text-2xl font-bold text-honey-300">Progress</h2>
         <p className="text-honey-100/80">Progress is saved in this browser on this device.</p>
-        <button
-          type="button"
-          className="btn btn-red"
-          onClick={() => {
-            if (confirm('Erase all progress, streaks and honey points? This cannot be undone.')) reset()
-          }}
-        >
-          Reset all progress
-        </button>
+        {/* An in-page confirmation, because browser confirm() dialogs are blocked in some embedded viewers. */}
+        {confirmReset ? (
+          <div className="flex flex-wrap items-center gap-3 rounded-xl bg-rose-400/10 p-3">
+            <span>Erase all progress, streaks and honey points? This can&apos;t be undone.</span>
+            <button
+              type="button"
+              className="btn btn-red"
+              onClick={() => {
+                reset()
+                setConfirmReset(false)
+              }}
+            >
+              Yes, erase it
+            </button>
+            <button type="button" className="btn btn-ghost" onClick={() => setConfirmReset(false)}>
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button type="button" className="btn btn-red" onClick={() => setConfirmReset(true)}>
+            Reset all progress
+          </button>
+        )}
       </section>
     </div>
   )

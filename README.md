@@ -53,3 +53,9 @@ key in Settings on each device is the simplest safe setup.
   `scripts/build_words.py` merges them into `src/data/words.json`.
 - These are study aids, not the official Scripps pronouncer guide. Check very rare words against Merriam-Webster
   Unabridged, which is the bee's official dictionary. For example, *nodiak* only has a placeholder definition.
+
+## Sharing without running a server
+
+`npm run build:single` builds the whole app into one file, `dist-single/index.html`. You can host that file anywhere,
+or publish it as a page. When the app runs inside a locked-down page, browser rules block calls to ElevenLabs, so it
+uses the device's built-in voice instead.
