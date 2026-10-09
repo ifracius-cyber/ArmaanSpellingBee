@@ -63,8 +63,8 @@ can also choose "practice without an account", which saves progress on that devi
 One-time setup in the Supabase project:
 
 1. **SQL Editor:** run `supabase/setup.sql`, then `supabase/accounts.sql`.
-2. **Edge Functions → Deploy a new function → Via Editor:** name it `tts` and paste
-   `supabase/functions/tts/index.ts`.
+2. **Edge Functions → Deploy a new function → Via Editor:** name it `elevenlabs` and paste
+   `supabase/functions/elevenlabs/index.ts`.
 3. **Edge Functions → Secrets:** add `ELEVENLABS_API_KEY` (the family ElevenLabs key) and `ALLOWED_EMAILS` (a
    comma-separated list of the emails allowed to use the voice). The key stays on the server and never reaches a
    browser.

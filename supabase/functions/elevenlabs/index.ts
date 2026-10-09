@@ -1,4 +1,4 @@
-// Supabase Edge Function "tts": speaks text with ElevenLabs for signed-in family accounts.
+// Supabase Edge Function "elevenlabs": speaks text with ElevenLabs for signed-in family accounts.
 //
 // The ElevenLabs key lives only here, as the secret ELEVENLABS_API_KEY, so it never reaches a browser.
 // Only accounts whose email is listed in the secret ALLOWED_EMAILS (comma-separated) may use it, so

@@ -6,3 +6,6 @@
 export const SUPABASE_URL = ((import.meta.env?.VITE_SUPABASE_URL as string | undefined) ?? '').replace(/\/+$/, '')
 export const SUPABASE_KEY = (import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined) ?? ''
 export const CLOUD_ENABLED = Boolean(SUPABASE_URL && SUPABASE_KEY)
+
+/** Name of the Supabase Edge Function that speaks with the family ElevenLabs key. */
+export const VOICE_FUNCTION = (import.meta.env?.VITE_VOICE_FUNCTION as string | undefined) || 'elevenlabs'

@@ -1,4 +1,4 @@
-import { SUPABASE_KEY, SUPABASE_URL } from '../config'
+import { SUPABASE_KEY, SUPABASE_URL, VOICE_FUNCTION } from '../config'
 import { useAuth } from './auth'
 import { useSettings } from './store'
 
@@ -73,9 +73,9 @@ export function hasElevenLabs(): boolean {
   return Boolean(activeApiKey() || accountVoiceToken())
 }
 
-/** Asks the `tts` Edge Function to speak; it holds the ElevenLabs key as a server secret. */
+/** Asks the voice Edge Function to speak; it holds the ElevenLabs key as a server secret. */
 async function accountTtsRequest(text: string, voiceId: string, modelId: string, speed: number): Promise<Response> {
-  const url = `${SUPABASE_URL}/functions/v1/tts`
+  const url = `${SUPABASE_URL}/functions/v1/${VOICE_FUNCTION}`
   const res = await fetch(url, {
     method: 'POST',
     headers: {
@@ -88,11 +88,11 @@ async function accountTtsRequest(text: string, voiceId: string, modelId: string,
     // The browser hides the reason when the server answers without CORS headers — that happens
     // when the function is missing, failed to start, or "Enforce JWT Verification" is on.
     throw new Error(
-      `Couldn't reach the voice server. Open ${url} in a browser: it should say "voice server is running". If it says "not found", the tts function isn't deployed; if it mentions "authorization", turn off Enforce JWT Verification on the tts function.`,
+      `Couldn't reach the voice server. Open ${url} in a browser: it should say "voice server is running". If it says "not found", the ${VOICE_FUNCTION} function isn't deployed; if it mentions "authorization", turn off Enforce JWT Verification on the ${VOICE_FUNCTION} function.`,
     )
   })
   if (res.status === 403) throw new Error('This account isn’t on the family voice list yet. Ask a grown-up to add your email.')
-  if (res.status === 404) throw new Error('The voice server isn’t set up yet (the "tts" Edge Function is missing).')
+  if (res.status === 404) throw new Error(`The voice server isn’t set up yet (the "${VOICE_FUNCTION}" Edge Function is missing).`)
   if (res.status === 401) throw new Error('Please sign in again to use the teacher voice.')
   return res
 }
