@@ -18,6 +18,16 @@ const MODELS = new Set(['eleven_multilingual_v2', 'eleven_flash_v2_5', 'eleven_t
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
+  // Opening the function URL in a browser shows whether it's deployed and configured (no secrets revealed).
+  if (req.method === 'GET') {
+    const emails = (Deno.env.get('ALLOWED_EMAILS') ?? '').split(',').filter((e) => e.trim()).length
+    return json(200, {
+      ok: true,
+      message: 'The Spelling Hive voice server is running.',
+      ELEVENLABS_API_KEY: Deno.env.get('ELEVENLABS_API_KEY') ? 'set' : 'MISSING — add it under Edge Functions → Secrets',
+      ALLOWED_EMAILS: emails ? `${emails} email(s) allowed` : 'MISSING — add it under Edge Functions → Secrets',
+    })
+  }
   if (req.method !== 'POST') return json(405, { error: 'POST only' })
 
   const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '')
