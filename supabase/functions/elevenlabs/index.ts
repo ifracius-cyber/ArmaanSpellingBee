@@ -49,11 +49,22 @@ Deno.serve(async (req) => {
     .trim()
   if (!key) return json(500, { error: 'ELEVENLABS_API_KEY secret is not set.' })
 
-  let body: { text?: unknown; voiceId?: unknown; modelId?: unknown; speed?: unknown }
+  let body: { action?: unknown; text?: unknown; voiceId?: unknown; modelId?: unknown; speed?: unknown }
   try {
     body = await req.json()
   } catch {
     return json(400, { error: 'Bad request' })
+  }
+
+  // The app's voice picker: list every voice on the family ElevenLabs account (needs "Voices: Read").
+  if (body.action === 'voices') {
+    const res = await fetch('https://api.elevenlabs.io/v1/voices', { headers: { 'xi-api-key': key } })
+    if (!res.ok) {
+      const status = res.status === 401 || res.status === 403 ? 502 : res.status
+      return new Response(await res.text(), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
+    }
+    const { voices } = (await res.json()) as { voices: { voice_id: string; name: string; category?: string }[] }
+    return json(200, { voices: voices.map((v) => ({ id: v.voice_id, name: v.name, category: v.category ?? '' })) })
   }
   const text = typeof body.text === 'string' ? body.text.trim() : ''
   const voiceId = typeof body.voiceId === 'string' && /^[A-Za-z0-9]{8,40}$/.test(body.voiceId) ? body.voiceId : ''

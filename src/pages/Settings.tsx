@@ -1,60 +1,45 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import AccountSettings from '../components/AccountSettings'
 import { saveLearnerName, useAuth } from '../lib/auth'
 import { useProgress, useSettings } from '../lib/store'
-import {
-  clearAudioCache,
-  fetchAccountVoices,
-  testApiKey,
-  lastVoiceError,
-  MODELS,
-  speak,
-  SUGGESTED_VOICES,
-  type ElevenVoice,
-} from '../lib/voice'
+import { clearAudioCache, fetchFamilyVoices, lastVoiceError, MODELS, speak, SUGGESTED_VOICES, type VoiceOption } from '../lib/voice'
 
 export default function SettingsPage({ param }: { param?: string }) {
   const s = useSettings()
   const signedIn = useAuth((a) => Boolean(a.session))
   const reset = useProgress((p) => p.reset)
-  const [keyDraft, setKeyDraft] = useState(s.apiKey)
-  const [voices, setVoices] = useState<ElevenVoice[]>([])
   const [status, setStatus] = useState('')
   const [confirmReset, setConfirmReset] = useState(false)
+  const [familyVoices, setFamilyVoices] = useState<VoiceOption[]>([])
+  const [voicesNote, setVoicesNote] = useState('')
 
-  const saveKey = async () => {
-    // People often paste with quotes, spaces or a "xi-api-key:" label — strip all of that.
-    const key = keyDraft.trim().replace(/^["']|["']$/g, '').replace(/^xi-api-key:\s*/i, '').trim()
-    setKeyDraft(key)
-    s.set({ apiKey: key, useElevenLabs: true })
-    if (!key) return setStatus(signedIn ? 'Key removed. Using the family account voice.' : 'Key removed. Using the built-in browser voice.')
-    if (!key.startsWith('sk_'))
-      return setStatus('⚠️ That doesn\'t look like an ElevenLabs API key. API keys start with "sk_" — an Agent ID or voice ID won\'t work here.')
-    setStatus('Checking key…')
-    try {
-      await testApiKey(key)
-    } catch (e) {
-      return setStatus(`⚠️ ${e instanceof Error ? e.message : e}`)
+  // Signed-in accounts see every voice on the family ElevenLabs account, not just the built-in four.
+  useEffect(() => {
+    if (!signedIn) return
+    let live = true
+    fetchFamilyVoices()
+      .then((v) => live && (setFamilyVoices(v), setVoicesNote('')))
+      .catch((e) => live && setVoicesNote(e instanceof Error ? e.message : String(e)))
+    return () => {
+      live = false
     }
-    try {
-      const v = await fetchAccountVoices(key)
-      setVoices(v)
-      setStatus(`✅ Connected! The teacher voice is ready, and ${v.length} voices from your account are in the Voice list.`)
-    } catch {
-      // Listing voices needs the optional "Voices: Read" permission; speech works without it.
-      setStatus('✅ Connected! The teacher voice is ready. (To pick from all your account voices, also give the key the "Voices → Read" permission.)')
-    }
-  }
+  }, [signedIn])
 
   const test = async () => {
     setStatus('Speaking…')
     await speak(`Hi ${s.learnerName}! Your word is: chrysanthemum. Chrysanthemum.`)
-    setStatus(lastVoiceError ? `⚠️ ElevenLabs error — fell back to browser voice: ${lastVoiceError}` : '✅ Sounds good!')
+    setStatus(
+      !signedIn
+        ? 'That was the built-in device voice. Sign in to hear the ElevenLabs teacher voice.'
+        : lastVoiceError
+          ? `⚠️ ElevenLabs error — fell back to browser voice: ${lastVoiceError}`
+          : '✅ Sounds good!',
+    )
   }
 
   const voiceOptions = [
     ...SUGGESTED_VOICES,
-    ...voices.filter((v) => !SUGGESTED_VOICES.some((sv) => sv.id === v.voice_id)).map((v) => ({ id: v.voice_id, name: v.name })),
+    ...familyVoices.filter((v) => !SUGGESTED_VOICES.some((sv) => sv.id === v.id)),
   ]
 
   return (
@@ -87,25 +72,10 @@ export default function SettingsPage({ param }: { param?: string }) {
         <h2 className="font-display text-2xl font-bold text-honey-300">🎙️ Teacher voice (ElevenLabs)</h2>
         <p className="text-honey-100/80">
           {signedIn
-            ? 'Your family account includes the ElevenLabs teacher voice, so there is no key to paste. Press "Test voice" to hear it.'
-            : "Sign in to use the family's ElevenLabs voice, or paste an ElevenLabs API key below. Without either, the app uses your device's built-in voice."}{' '}
-          Each phrase is generated once and then saved on this device, so listening again is free.
+            ? 'The ElevenLabs teacher voice comes with your family account. There is nothing to set up.'
+            : "Sign in to hear the ElevenLabs teacher voice. Until then, the app uses this device's built-in voice."}{' '}
+          Each phrase is made once and then saved on this device, so listening again is free.
         </p>
-        <Field label={signedIn ? 'Personal ElevenLabs API key (only used when signed out)' : 'ElevenLabs API key'}>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <input
-              className="input flex-1"
-              type="password"
-              autoComplete="off"
-              placeholder="sk_…"
-              value={keyDraft}
-              onChange={(e) => setKeyDraft(e.target.value)}
-            />
-            <button type="button" className="btn btn-honey" onClick={saveKey}>
-              Save &amp; check
-            </button>
-          </div>
-        </Field>
         <label className="flex items-center gap-3">
           <input
             type="checkbox"
@@ -113,7 +83,7 @@ export default function SettingsPage({ param }: { param?: string }) {
             onChange={(e) => s.set({ useElevenLabs: e.target.checked })}
             className="h-5 w-5 accent-amber-400"
           />
-          Use ElevenLabs voice when a key is set
+          Use the ElevenLabs teacher voice (turn off to use the device voice)
         </label>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Voice">
@@ -124,6 +94,7 @@ export default function SettingsPage({ param }: { param?: string }) {
                 </option>
               ))}
             </select>
+            {voicesNote && <span className="block text-xs text-honey-100/70">{voicesNote}</span>}
           </Field>
           <Field label="Voice model">
             <select className="input" value={s.modelId} onChange={(e) => s.set({ modelId: e.target.value })}>

@@ -5,12 +5,12 @@ import { useSettings } from './store'
 /**
  * Teaching voice.
  *
- * Uses ElevenLabs text-to-speech when an API key is configured, and falls back to the
- * browser's built-in speech synthesis otherwise (or if the ElevenLabs request fails).
+ * Signed-in family accounts hear ElevenLabs through the Supabase voice function, which keeps the
+ * ElevenLabs key on the server — nobody ever types or sees a key. Signed out (or if the request
+ * fails) the app uses the browser's built-in speech synthesis instead.
  * Generated clips are stored with the Cache API so each phrase is only paid for once.
  */
 
-const ELEVEN_BASE = 'https://api.elevenlabs.io/v1'
 const AUDIO_CACHE = 'spelling-hive-tts-v1'
 
 
@@ -56,21 +56,37 @@ function haltAudio() {
   emit(false)
 }
 
-function getEnvKey(): string {
-  return (import.meta.env.VITE_ELEVENLABS_API_KEY as string | undefined) ?? ''
-}
-
-export function activeApiKey(): string {
-  return useSettings.getState().apiKey || getEnvKey()
-}
-
 /** Signed-in family accounts get the ElevenLabs voice through the server, with no key in the browser. */
 function accountVoiceToken(): string {
   return useAuth.getState().session?.access_token ?? ''
 }
 
 export function hasElevenLabs(): boolean {
-  return Boolean(activeApiKey() || accountVoiceToken())
+  return Boolean(accountVoiceToken())
+}
+
+export interface VoiceOption {
+  id: string
+  name: string
+}
+
+/** Every voice on the family ElevenLabs account, fetched through the voice function (signed-in only). */
+export async function fetchFamilyVoices(): Promise<VoiceOption[]> {
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/${VOICE_FUNCTION}`, {
+    method: 'POST',
+    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${accountVoiceToken()}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'voices' }),
+  })
+  if (!res.ok) {
+    const err = await friendlyError(res)
+    if (/missing a permission|missing_permissions/i.test(err.message))
+      throw new Error('To list all voices, edit the family ElevenLabs key and set "Voices" to Read.')
+    throw err
+  }
+  const json = (await res.json()) as { voices?: VoiceOption[] }
+  // Older versions of the voice function don't know this request and reply with an error instead.
+  if (!Array.isArray(json.voices)) throw new Error('Update the voice function in Supabase to list all voices.')
+  return json.voices
 }
 
 /** Asks the voice Edge Function to speak; it holds the ElevenLabs key as a server secret. */
@@ -97,10 +113,8 @@ async function accountTtsRequest(text: string, voiceId: string, modelId: string,
   return res
 }
 
-type KeySource = 'personal' | 'family'
-
 /** Turns an ElevenLabs error response into a message a parent can act on. */
-async function friendlyError(res: Response, source: KeySource = 'personal'): Promise<Error> {
+async function friendlyError(res: Response): Promise<Error> {
   let status = ''
   let message = ''
   try {
@@ -117,11 +131,9 @@ async function friendlyError(res: Response, source: KeySource = 'personal'): Pro
   let hint: string
   if (status === 'invalid_api_key' || (res.status === 401 && !status))
     hint =
-      source === 'family'
-        ? 'ElevenLabs rejected the family key. In Supabase → Edge Functions → Secrets, re-paste ELEVENLABS_API_KEY (just the sk_… key: no quotes or spaces).'
-        : 'ElevenLabs rejected the personal key saved on this device. Clear the key box in Settings and press "Save & check", or paste a fresh key from ElevenLabs → Developers → API Keys.'
+      'ElevenLabs rejected the family key. In Supabase → Edge Functions → Secrets, re-paste ELEVENLABS_API_KEY (just the sk_… key: no quotes or spaces).'
   else if (status === 'missing_permissions')
-    hint = `The ${source} key is missing a permission. Edit the key on ElevenLabs and turn on "Text to Speech" (Access).`
+    hint = `The family key is missing a permission. Edit the key on ElevenLabs and turn on "Text to Speech" (Access).`
   else if (status === 'quota_exceeded' || res.status === 402)
     hint = 'The ElevenLabs account is out of credits for this month, or this voice needs a paid plan.'
   else if (status === 'detected_unusual_activity')
@@ -133,35 +145,8 @@ async function friendlyError(res: Response, source: KeySource = 'personal'): Pro
   return new Error(message ? `${hint} (${message})` : hint)
 }
 
-function ttsRequest(key: string, text: string, voiceId: string, modelId: string, speed: number) {
-  return fetch(`${ELEVEN_BASE}/text-to-speech/${voiceId}?output_format=mp3_44100_128`, {
-    method: 'POST',
-    headers: { 'xi-api-key': key, 'Content-Type': 'application/json', Accept: 'audio/mpeg' },
-    body: JSON.stringify({
-      text,
-      model_id: modelId,
-      voice_settings: { stability: 0.6, similarity_boost: 0.8, style: 0.15, speed },
-    }),
-  })
-}
-
-/** Checks a key by making one tiny speech request — the only permission the app really needs. */
-export async function testApiKey(key: string): Promise<void> {
-  const { voiceId, modelId, speed } = useSettings.getState()
-  let res: Response
-  try {
-    res = await ttsRequest(key, 'Hi!', voiceId, modelId, speed)
-  } catch {
-    throw new Error('Could not reach ElevenLabs. Check the internet connection, or turn off an ad/tracker blocker for this page.')
-  }
-  if (!res.ok) throw await friendlyError(res)
-}
-
 async function elevenLabsAudio(text: string): Promise<Blob> {
   const { voiceId, modelId, speed } = useSettings.getState()
-  // Signed-in family accounts always use the shared server voice; a personal key is only for signed-out use.
-  const family = Boolean(accountVoiceToken())
-  const key = family ? '' : activeApiKey()
   const cacheKey = `https://cache.local/tts/${modelId}/${voiceId}/${speed}/${encodeURIComponent(text)}`
 
   let cache: Cache | null = null
@@ -173,8 +158,8 @@ async function elevenLabsAudio(text: string): Promise<Blob> {
     // Cache API unavailable (e.g. insecure context) — just fetch every time.
   }
 
-  const res = family ? await accountTtsRequest(text, voiceId, modelId, speed) : await ttsRequest(key, text, voiceId, modelId, speed)
-  if (!res.ok) throw await friendlyError(res, family ? 'family' : 'personal')
+  const res = await accountTtsRequest(text, voiceId, modelId, speed)
+  if (!res.ok) throw await friendlyError(res)
   const blob = await res.blob()
   if (cache) await cache.put(cacheKey, new Response(blob, { headers: { 'Content-Type': 'audio/mpeg' } })).catch(() => {})
   return blob
@@ -242,20 +227,6 @@ export async function speakSequence(parts: string[]): Promise<void> {
     if (mySeq !== seq) return
     await say(p)
   }
-}
-
-export interface ElevenVoice {
-  voice_id: string
-  name: string
-  category?: string
-}
-
-/** Lists voices on the user's ElevenLabs account (used by Settings). */
-export async function fetchAccountVoices(key: string): Promise<ElevenVoice[]> {
-  const res = await fetch(`${ELEVEN_BASE}/voices`, { headers: { 'xi-api-key': key } })
-  if (!res.ok) throw await friendlyError(res)
-  const json = (await res.json()) as { voices: ElevenVoice[] }
-  return json.voices
 }
 
 export async function clearAudioCache(): Promise<void> {

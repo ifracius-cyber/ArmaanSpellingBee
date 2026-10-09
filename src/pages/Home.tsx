@@ -48,8 +48,12 @@ export default function HomePage() {
                 🔊 Say hello
               </SpeakButton>
               {!hasElevenLabs() && (
-                <button type="button" className="btn btn-ghost text-sm" onClick={() => go('settings')}>
-                  🎙️ Set up ElevenLabs voice
+                <button
+                  type="button"
+                  className="btn btn-ghost text-sm"
+                  onClick={() => useSettings.getState().set({ guest: false })}
+                >
+                  🎙️ Sign in for the teacher voice
                 </button>
               )}
             </div>

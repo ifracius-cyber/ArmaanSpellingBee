@@ -6,7 +6,6 @@ const DEFAULT_VOICE = 'hpp4J3VqNfWAUOO0d1Us'
 
 interface SettingsState {
   learnerName: string
-  apiKey: string
   useElevenLabs: boolean
   voiceId: string
   modelId: string
@@ -23,7 +22,6 @@ export const useSettings = create<SettingsState>()(
   persist(
     (set) => ({
       learnerName: 'Armaan',
-      apiKey: '',
       useElevenLabs: true,
       voiceId: DEFAULT_VOICE,
       modelId: 'eleven_multilingual_v2',
@@ -33,7 +31,18 @@ export const useSettings = create<SettingsState>()(
       guest: false,
       set: (patch) => set(patch),
     }),
-    { name: 'spelling-hive-settings' },
+    {
+      name: 'spelling-hive-settings',
+      // v1 removed the per-browser ElevenLabs key; drop any key an older version saved here.
+      version: 1,
+      migrate: (persisted) => {
+        const { apiKey: _old, ...rest } = (persisted ?? {}) as Record<string, unknown>
+        void _old
+        return rest as unknown as SettingsState
+      },
+      // Re-save right after loading so a migrated (key-free) copy replaces the old one in storage.
+      onRehydrateStorage: () => (state) => state?.set({}),
+    },
   ),
 )
 

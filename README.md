@@ -22,8 +22,8 @@ A word counts as *mastered* after it has been spelled correctly several times. P
 - **Three.js** through **React Three Fiber**: the moving honeycomb background, the flying bee mascot, the 3D letter
   tiles and the confetti. Everything is built from code, so there are no model files to download.
 - **ElevenLabs text-to-speech** for the teacher voice. The default voice is "Bella", a premade voice made for
-  education. Each phrase is cached in the browser after it is first made, so hearing it again costs no credits. If
-  there is no key, or the request fails, the app uses the device's built-in voice instead.
+  education. Each phrase is cached in the browser after it is first made, so hearing it again costs no credits. When the
+  learner is signed out, or the request fails, the app uses the device's built-in voice instead.
 
 ## Running it
 
@@ -34,15 +34,11 @@ npm run dev:host   # also reachable from other devices on your Wi-Fi (use the "N
 npm run build      # static site in dist/
 ```
 
-### Turning on the ElevenLabs voice
+### The ElevenLabs voice
 
-1. Create an API key at <https://elevenlabs.io/app/settings/api-keys>. It only needs the *Text to Speech* and
-   *Voices (read)* permissions.
-2. Open **Settings** in the app, paste the key, and press **Save & check**. Then press **Test voice**.
-
-The key is stored in that browser only (localStorage). The app is a static site that calls ElevenLabs directly
-from the browser, so **don't publish it on a public URL with a key built in**. For a private family app, pasting the
-key in Settings on each device is the simplest safe setup.
+Nobody enters an API key in the app. The family ElevenLabs key is stored as a Supabase secret and used only by the
+`elevenlabs` Edge Function (see *Accounts* below), so the key never reaches a browser. Signed-in accounts on the
+`ALLOWED_EMAILS` list hear the ElevenLabs voice. Everyone else hears the device's built-in voice.
 
 ## Word data
 
