@@ -31,7 +31,12 @@ Deno.serve(async (req) => {
     .filter(Boolean)
   if (!allowed.includes(data.user.email.toLowerCase())) return json(403, { error: 'This account is not on the voice list.' })
 
-  const key = Deno.env.get('ELEVENLABS_API_KEY')
+  // Forgive the usual copy-paste slips: surrounding spaces, quotes, or a pasted "xi-api-key:" label.
+  const key = (Deno.env.get('ELEVENLABS_API_KEY') ?? '')
+    .trim()
+    .replace(/^xi-api-key:\s*/i, '')
+    .replace(/^["']|["']$/g, '')
+    .trim()
   if (!key) return json(500, { error: 'ELEVENLABS_API_KEY secret is not set.' })
 
   let body: { text?: unknown; voiceId?: unknown; modelId?: unknown; speed?: unknown }

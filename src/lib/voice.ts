@@ -90,13 +90,16 @@ async function accountTtsRequest(text: string, voiceId: string, modelId: string,
   return res
 }
 
+type KeySource = 'personal' | 'family'
+
 /** Turns an ElevenLabs error response into a message a parent can act on. */
-async function friendlyError(res: Response): Promise<Error> {
+async function friendlyError(res: Response, source: KeySource = 'personal'): Promise<Error> {
   let status = ''
   let message = ''
   try {
-    const body = (await res.json()) as { detail?: { status?: string; message?: string } | string }
-    if (typeof body.detail === 'string') message = body.detail
+    const body = (await res.json()) as { detail?: { status?: string; message?: string } | string; error?: string }
+    if (body.error) message = body.error
+    else if (typeof body.detail === 'string') message = body.detail
     else {
       status = body.detail?.status ?? ''
       message = body.detail?.message ?? ''
@@ -106,9 +109,12 @@ async function friendlyError(res: Response): Promise<Error> {
   }
   let hint: string
   if (status === 'invalid_api_key' || (res.status === 401 && !status))
-    hint = 'The key was not recognised. Copy it again from ElevenLabs → Developers → API Keys (it starts with "sk_").'
+    hint =
+      source === 'family'
+        ? 'ElevenLabs rejected the family key. In Supabase → Edge Functions → Secrets, re-paste ELEVENLABS_API_KEY (just the sk_… key: no quotes or spaces).'
+        : 'ElevenLabs rejected the personal key saved on this device. Clear the key box in Settings and press "Save & check", or paste a fresh key from ElevenLabs → Developers → API Keys.'
   else if (status === 'missing_permissions')
-    hint = 'This key is missing a permission. Edit the key on ElevenLabs and turn on "Text to Speech" (Access).'
+    hint = `The ${source} key is missing a permission. Edit the key on ElevenLabs and turn on "Text to Speech" (Access).`
   else if (status === 'quota_exceeded' || res.status === 402)
     hint = 'The ElevenLabs account is out of credits for this month, or this voice needs a paid plan.'
   else if (status === 'detected_unusual_activity')
@@ -146,7 +152,9 @@ export async function testApiKey(key: string): Promise<void> {
 
 async function elevenLabsAudio(text: string): Promise<Blob> {
   const { voiceId, modelId, speed } = useSettings.getState()
-  const key = activeApiKey()
+  // Signed-in family accounts always use the shared server voice; a personal key is only for signed-out use.
+  const family = Boolean(accountVoiceToken())
+  const key = family ? '' : activeApiKey()
   const cacheKey = `https://cache.local/tts/${modelId}/${voiceId}/${speed}/${encodeURIComponent(text)}`
 
   let cache: Cache | null = null
@@ -158,8 +166,8 @@ async function elevenLabsAudio(text: string): Promise<Blob> {
     // Cache API unavailable (e.g. insecure context) — just fetch every time.
   }
 
-  const res = key ? await ttsRequest(key, text, voiceId, modelId, speed) : await accountTtsRequest(text, voiceId, modelId, speed)
-  if (!res.ok) throw await friendlyError(res)
+  const res = family ? await accountTtsRequest(text, voiceId, modelId, speed) : await ttsRequest(key, text, voiceId, modelId, speed)
+  if (!res.ok) throw await friendlyError(res, family ? 'family' : 'personal')
   const blob = await res.blob()
   if (cache) await cache.put(cacheKey, new Response(blob, { headers: { 'Content-Type': 'audio/mpeg' } })).catch(() => {})
   return blob

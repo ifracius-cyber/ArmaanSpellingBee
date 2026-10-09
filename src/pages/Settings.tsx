@@ -91,7 +91,7 @@ export default function SettingsPage({ param }: { param?: string }) {
             : "Sign in to use the family's ElevenLabs voice, or paste an ElevenLabs API key below. Without either, the app uses your device's built-in voice."}{' '}
           Each phrase is generated once and then saved on this device, so listening again is free.
         </p>
-        <Field label={signedIn ? 'Personal ElevenLabs API key (optional)' : 'ElevenLabs API key'}>
+        <Field label={signedIn ? 'Personal ElevenLabs API key (only used when signed out)' : 'ElevenLabs API key'}>
           <div className="flex flex-col gap-2 sm:flex-row">
             <input
               className="input flex-1"
